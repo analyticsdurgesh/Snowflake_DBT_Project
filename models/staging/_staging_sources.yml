@@ -1,0 +1,46 @@
+version: 2
+
+sources:
+  - name: airbnb_raw
+    description: Raw Inside Airbnb files loaded into Snowflake without business transformations.
+    database: AIRBNB_ANALYTICS
+    schema: RAW
+    tables:
+      - name: listings
+        description: Listing-level attributes from Inside Airbnb.
+        columns:
+          - name: id
+            description: Airbnb listing identifier.
+            tests:
+              - not_null
+              - unique
+      - name: calendar
+        description: Listing-date availability and price data.
+        columns:
+          - name: listing_id
+            description: Airbnb listing identifier.
+            tests:
+              - not_null
+          - name: date
+            description: Calendar date for the listing.
+            tests:
+              - not_null
+      - name: reviews
+        description: Review-level records from Inside Airbnb.
+        columns:
+          - name: id
+            description: Airbnb review identifier.
+            tests:
+              - not_null
+              - unique
+          - name: listing_id
+            description: Airbnb listing identifier.
+            tests:
+              - not_null
+      - name: neighbourhoods
+        description: Reference list of neighbourhood names and optional neighbourhood groups.
+        columns:
+          - name: neighbourhood
+            description: Neighbourhood name from Inside Airbnb.
+            tests:
+              - not_null

@@ -1,0 +1,16 @@
+.venv/
+target/
+dbt_packages/
+logs/
+*.log
+.env
+.user.yml
+profiles-local.yml
+profiles.yml
+config/local_credentials.json
+__pycache__/
+.DS_Store
+
+# Older local setup notes still reference environment-variable workflows.
+docs/STUDENT_GUIDE.md
+docs/SNOWFLAKE_SETUP.md

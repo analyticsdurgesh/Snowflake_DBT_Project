@@ -1,0 +1,72 @@
+version: 2
+
+models:
+  - name: stg_airbnb__listings
+    description: Cleaned and typed listing records from the raw Inside Airbnb listings file.
+    columns:
+      - name: listing_id
+        description: Unique Airbnb listing identifier.
+        tests:
+          - not_null
+          - unique
+      - name: host_id
+        description: Airbnb host identifier.
+        tests:
+          - not_null
+      - name: room_type
+        description: Airbnb room type classification.
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['Entire home/apt', 'Private room', 'Shared room', 'Hotel room']
+      - name: nightly_price
+        description: Listing base nightly price parsed from the source currency string.
+
+  - name: stg_airbnb__calendar
+    description: Cleaned and typed listing-date calendar availability records.
+    columns:
+      - name: listing_id
+        description: Airbnb listing identifier.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_airbnb__listings')
+                field: listing_id
+      - name: calendar_date
+        description: Date for the listing availability record.
+        tests:
+          - not_null
+      - name: is_available
+        description: True when the listing was available on the calendar date.
+        tests:
+          - accepted_values:
+              arguments:
+                values: [true, false]
+                quote: false
+
+  - name: stg_airbnb__reviews
+    description: Cleaned and typed review records.
+    columns:
+      - name: review_id
+        description: Unique Airbnb review identifier.
+        tests:
+          - not_null
+          - unique
+      - name: listing_id
+        description: Airbnb listing identifier.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_airbnb__listings')
+                field: listing_id
+
+  - name: stg_airbnb__neighbourhoods
+    description: Cleaned neighbourhood reference values.
+    columns:
+      - name: neighbourhood
+        description: Neighbourhood name.
+        tests:
+          - not_null
+          - unique

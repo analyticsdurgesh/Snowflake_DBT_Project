@@ -1,0 +1,81 @@
+version: 2
+
+models:
+  - name: dim_listings
+    description: One row per listing with host, location, property, price, and review attributes.
+    columns:
+      - name: listing_id
+        description: Unique Airbnb listing identifier.
+        tests:
+          - not_null
+          - unique
+      - name: nightly_price
+        description: Listing base nightly price.
+      - name: reporting_neighbourhood
+        description: Neighbourhood used in analytics reporting.
+        tests:
+          - not_null
+
+  - name: dim_hosts
+    description: One row per host with listing counts, profile attributes, and aggregated listing metrics.
+    columns:
+      - name: host_id
+        description: Unique Airbnb host identifier.
+        tests:
+          - not_null
+          - unique
+      - name: listing_count
+        description: Number of listings managed by the host.
+
+  - name: fct_listing_calendar
+    description: Incremental fact table with one row per listing per calendar date.
+    columns:
+      - name: listing_id
+        description: Airbnb listing identifier.
+        tests:
+          - not_null
+      - name: calendar_date
+        description: Calendar date.
+        tests:
+          - not_null
+      - name: estimated_unavailable_night_revenue
+        description: Estimated revenue proxy for unavailable nights.
+        tests:
+          - not_null
+
+  - name: fct_reviews
+    description: One row per Airbnb review.
+    columns:
+      - name: review_id
+        description: Unique Airbnb review identifier.
+        tests:
+          - not_null
+          - unique
+      - name: listing_id
+        description: Airbnb listing identifier.
+        tests:
+          - not_null
+
+  - name: agg_listing_monthly_performance
+    description: Monthly listing-level availability, price, and estimated revenue metrics.
+    columns:
+      - name: listing_id
+        description: Airbnb listing identifier.
+        tests:
+          - not_null
+      - name: calendar_month
+        description: First day of the reporting month.
+        tests:
+          - not_null
+
+  - name: agg_neighbourhood_monthly_performance
+    description: Monthly neighbourhood-level availability, price, and estimated revenue metrics.
+    columns:
+      - name: reporting_neighbourhood
+        description: Neighbourhood used in analytics reporting.
+        tests:
+          - not_null
+      - name: calendar_month
+        description: First day of the reporting month.
+        tests:
+          - not_null

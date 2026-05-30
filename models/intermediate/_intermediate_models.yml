@@ -1,0 +1,40 @@
+version: 2
+
+models:
+  - name: int_airbnb__listing_enriched
+    description: Listing records enriched with reporting neighbourhood, host tenure, and classroom-friendly buckets.
+    columns:
+      - name: listing_id
+        description: Unique Airbnb listing identifier.
+        tests:
+          - not_null
+          - unique
+      - name: reporting_neighbourhood
+        description: Best available neighbourhood name for reporting.
+        tests:
+          - not_null
+
+  - name: int_airbnb__calendar_enriched
+    description: Calendar records enriched with listing attributes and estimated unavailable-night revenue.
+    columns:
+      - name: listing_id
+        description: Airbnb listing identifier.
+        tests:
+          - not_null
+      - name: calendar_date
+        description: Calendar date.
+        tests:
+          - not_null
+      - name: estimated_unavailable_night_revenue
+        description: Revenue proxy for unavailable nights using adjusted price, calendar price, or listing base price.
+        tests:
+          - not_null
+
+  - name: int_airbnb__reviews_enriched
+    description: Reviews enriched with listing, host, room type, and neighbourhood attributes.
+    columns:
+      - name: review_id
+        description: Unique Airbnb review identifier.
+        tests:
+          - not_null
+          - unique
