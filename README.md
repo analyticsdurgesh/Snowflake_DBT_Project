@@ -32,26 +32,77 @@ Inside Airbnb does not provide booking transactions. This project uses calendar 
 
 ## Architecture
 
-```text
-Inside Airbnb CSV/GZIP files
-    |
-    v
-Snowflake internal stage
-    |
-    v
-RAW tables
-    |
-    v
-dbt staging views
-    |
-    v
-dbt intermediate models
-    |
-    v
-analytics marts
-    |
-    v
-Streamlit dashboard
+```mermaid
+flowchart LR
+    A["Inside Airbnb files<br/>listings, calendar, reviews, neighbourhoods"] --> B["Python loader<br/>load_inside_airbnb_to_snowflake.py"]
+    B --> C["Snowflake internal stage<br/>INSIDE_AIRBNB_STAGE"]
+    C --> D["RAW schema<br/>text-preserving raw tables"]
+    D --> E["dbt staging views<br/>clean + cast + standardize"]
+    E --> F["dbt intermediate layer<br/>joins + enrichment + revenue proxy"]
+    F --> G["dbt marts<br/>dimensions, facts, monthly aggregates"]
+    G --> H["Streamlit dashboard<br/>neighbourhood, host, listing analytics"]
+
+    I["profiles.yml<br/>ignored local Snowflake config"] -.-> J["dbt CLI"]
+    J --> E
+    J --> F
+    J --> G
+
+    style A fill:#E0F2FE,stroke:#0284C7,color:#0F172A
+    style B fill:#F8FAFC,stroke:#64748B,color:#0F172A
+    style C fill:#FEF3C7,stroke:#D97706,color:#0F172A
+    style D fill:#FEF3C7,stroke:#D97706,color:#0F172A
+    style E fill:#DCFCE7,stroke:#16A34A,color:#0F172A
+    style F fill:#DCFCE7,stroke:#16A34A,color:#0F172A
+    style G fill:#DCFCE7,stroke:#16A34A,color:#0F172A
+    style H fill:#0F172A,stroke:#22C55E,color:#FFFFFF
+```
+
+## dbt Lineage
+
+```mermaid
+flowchart TB
+    L["RAW.LISTINGS"] --> SL["stg_airbnb__listings"]
+    C["RAW.CALENDAR"] --> SC["stg_airbnb__calendar"]
+    R["RAW.REVIEWS"] --> SR["stg_airbnb__reviews"]
+    N["RAW.NEIGHBOURHOODS"] --> SN["stg_airbnb__neighbourhoods"]
+
+    SL --> IL["int_airbnb__listing_enriched"]
+    SN --> IL
+    SC --> IC["int_airbnb__calendar_enriched"]
+    IL --> IC
+    SR --> IR["int_airbnb__reviews_enriched"]
+    IL --> IR
+
+    IL --> DL["dim_listings"]
+    IL --> DH["dim_hosts"]
+    IC --> FC["fct_listing_calendar<br/>incremental merge"]
+    IR --> FR["fct_reviews"]
+    FC --> AL["agg_listing_monthly_performance"]
+    AL --> AN["agg_neighbourhood_monthly_performance"]
+
+    DL --> DASH["Streamlit dashboard"]
+    DH --> DASH
+    AL --> DASH
+    AN --> DASH
+
+    style L fill:#E0F2FE,stroke:#0284C7,color:#0F172A
+    style C fill:#E0F2FE,stroke:#0284C7,color:#0F172A
+    style R fill:#E0F2FE,stroke:#0284C7,color:#0F172A
+    style N fill:#E0F2FE,stroke:#0284C7,color:#0F172A
+    style SL fill:#DCFCE7,stroke:#16A34A,color:#0F172A
+    style SC fill:#DCFCE7,stroke:#16A34A,color:#0F172A
+    style SR fill:#DCFCE7,stroke:#16A34A,color:#0F172A
+    style SN fill:#DCFCE7,stroke:#16A34A,color:#0F172A
+    style IL fill:#FEF3C7,stroke:#D97706,color:#0F172A
+    style IC fill:#FEF3C7,stroke:#D97706,color:#0F172A
+    style IR fill:#FEF3C7,stroke:#D97706,color:#0F172A
+    style DL fill:#F8FAFC,stroke:#64748B,color:#0F172A
+    style DH fill:#F8FAFC,stroke:#64748B,color:#0F172A
+    style FC fill:#F8FAFC,stroke:#64748B,color:#0F172A
+    style FR fill:#F8FAFC,stroke:#64748B,color:#0F172A
+    style AL fill:#F8FAFC,stroke:#64748B,color:#0F172A
+    style AN fill:#F8FAFC,stroke:#64748B,color:#0F172A
+    style DASH fill:#0F172A,stroke:#22C55E,color:#FFFFFF
 ```
 
 ## dbt Model Layers
