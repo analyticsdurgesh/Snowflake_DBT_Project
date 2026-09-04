@@ -1,5 +1,17 @@
 # Airbnb Snowflake dbt Analytics Project
 
+<!-- de-book-banner -->
+> ### Free book: *Data Engineering: From Zero to Production & Interview Ready*
+>
+> 244 pages, by the author of this repo. One order followed through a fictional
+> Indian e-commerce company, with each tool arriving at the moment the story needs
+> it. Every figure in it was measured rather than asserted, and the code behind
+> each one is in the [Field Kit](https://github.com/analyticsdurgesh/data-engineering-book-field-kit).
+>
+> **[Read it free, no card &rarr;](https://www.prepnplaced.com/data-engineering-book?utm_source=github&utm_medium=repo&utm_campaign=de_book)**
+<!-- /de-book-banner -->
+
+
 Public analytics engineering portfolio project that loads the Inside Airbnb open dataset into Snowflake, transforms it with dbt, validates data quality, and powers a Streamlit reporting dashboard.
 
 ## What This Project Demonstrates
