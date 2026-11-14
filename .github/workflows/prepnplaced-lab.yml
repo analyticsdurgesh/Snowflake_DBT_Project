@@ -25,8 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      LAB_REF: 098595ebfaa71677f2bd367ddcb30fa092bb3c1f
-      LAB_SHA256: 610d6584ca6d2656400d22f20cb1743984d1c93faab3ce530d6e292e0dd29e96
+      LAB_REF: 3e00bae6de242d9a0a6fc73e3a910623a41dc989
+      LAB_SHA256: 4a86eb388a17b7228e731c3d123b652c422d07e9b99e31021553bdf9f32f23c8
       DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
     steps:
       - uses: actions/checkout@v4
