@@ -14,3 +14,7 @@ __pycache__/
 # Older local setup notes still reference environment-variable workflows.
 docs/STUDENT_GUIDE.md
 docs/SNOWFLAKE_SETUP.md
+
+# The local DuckDB database (rebuild it with scripts/load_inside_airbnb_to_duckdb.py)
+*.duckdb
+*.duckdb.wal

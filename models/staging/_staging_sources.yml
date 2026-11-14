@@ -3,7 +3,8 @@ version: 2
 sources:
   - name: airbnb_raw
     description: Raw Inside Airbnb files loaded into Snowflake without business transformations.
-    database: AIRBNB_ANALYTICS
+    # AIRBNB_ANALYTICS on Snowflake; on DuckDB the database is the .duckdb file itself.
+    database: "{{ 'AIRBNB_ANALYTICS' if target.type == 'snowflake' else target.database }}"
     schema: RAW
     tables:
       - name: listings
@@ -43,4 +44,10 @@ sources:
           - name: neighbourhood
             description: Neighbourhood name from Inside Airbnb.
             tests:
-              - not_null
+              # The published file ends with an empty row (","), so this finds 1 NULL.
+              # We do not control this source, so here it is a warning;
+              # stg_airbnb__neighbourhoods drops that row and enforces not_null and
+              # unique as errors. Warn on raw data you do not own, fail on your models.
+              - not_null:
+                  config:
+                    severity: warn

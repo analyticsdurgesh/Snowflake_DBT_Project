@@ -19,7 +19,7 @@ enriched as (
         coalesce(listings.neighbourhood, neighbourhoods.neighbourhood, 'Unknown') as reporting_neighbourhood,
         coalesce(listings.neighbourhood_group, neighbourhoods.neighbourhood_group, 'Unknown') as reporting_neighbourhood_group,
 
-        datediff(day, listings.host_since_date, current_date) as host_tenure_days,
+        {{ dbt.datediff('listings.host_since_date', 'current_date', 'day') }} as host_tenure_days,
 
         case
             when listings.nightly_price is null then 'Unknown'

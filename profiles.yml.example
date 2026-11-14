@@ -1,4 +1,6 @@
 airbnb_snowflake:
+  # dev = Snowflake (the default). duckdb = the free path: a local file, no account.
+  # Pick one per command with --target, e.g.  dbt build --target duckdb --profiles-dir .
   target: dev
   outputs:
     dev:
@@ -12,3 +14,9 @@ airbnb_snowflake:
       schema: "ANALYTICS"
       threads: 4
       client_session_keep_alive: false
+    duckdb:
+      type: duckdb
+      # Created by: python scripts/load_inside_airbnb_to_duckdb.py
+      path: "airbnb.duckdb"
+      schema: "analytics"
+      threads: 4
