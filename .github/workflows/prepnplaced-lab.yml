@@ -1,0 +1,84 @@
+name: PrepNPlaced Lab check
+
+# The PrepNPlaced Project Lab reads this workflow's results to tick your
+# checkpoints: each step below is one checkpoint. Keep this file exactly as the
+# project ships it. The Lab only counts a run when this file matches the
+# published version byte for byte, so an edited copy proves nothing.
+#
+# It runs in YOUR copy of the project (your fork) on every push to main, and
+# when you press "Run workflow" in the Actions tab. Steps you have not reached
+# yet are red; they turn green as you finish each module.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lab:
+    name: PrepNPlaced Lab check
+    # Learners' copies only: the original repository has nothing to check.
+    if: github.repository != 'analyticsdurgesh/Snowflake_DBT_Project'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LAB_REF: 3e00bae6de242d9a0a6fc73e3a910623a41dc989
+      LAB_SHA256: 4a86eb388a17b7228e731c3d123b652c422d07e9b99e31021553bdf9f32f23c8
+      DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-duckdb.txt
+          cp profiles.yml.example profiles.yml
+
+      - name: Get the Lab checker
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/analyticsdurgesh/prepnplaced-project-labs/${LAB_REF}/airbnb-snowflake-dbt/lab_check.py" -o "$RUNNER_TEMP/lab_check.py"
+          echo "${LAB_SHA256}  $RUNNER_TEMP/lab_check.py" | sha256sum --check --strict
+
+      - name: Load RAW and build
+        run: |
+          python scripts/load_inside_airbnb_to_duckdb.py
+          dbt build --target duckdb --profiles-dir . || echo "::warning::dbt build reported failures; the checkpoint steps below say which ones matter"
+
+      - name: staging
+        id: staging
+        if: ${{ !cancelled() }}
+        run: python "$RUNNER_TEMP/lab_check.py" ci staging
+
+      - name: intermediate
+        id: intermediate
+        if: ${{ !cancelled() }}
+        run: python "$RUNNER_TEMP/lab_check.py" ci intermediate
+
+      - name: marts
+        id: marts
+        if: ${{ !cancelled() }}
+        run: python "$RUNNER_TEMP/lab_check.py" ci marts
+
+      - name: build-it
+        id: build-it
+        if: ${{ !cancelled() }}
+        run: python "$RUNNER_TEMP/lab_check.py" ci build-it
+
+      - name: break-it
+        id: break-it
+        if: ${{ !cancelled() }}
+        run: python "$RUNNER_TEMP/lab_check.py" ci break-it
+
+      - name: ship
+        id: ship
+        if: ${{ !cancelled() }}
+        env:
+          LAB_EARLIER: "staging=${{ steps.staging.outcome }},intermediate=${{ steps.intermediate.outcome }},marts=${{ steps.marts.outcome }},build-it=${{ steps.build-it.outcome }},break-it=${{ steps.break-it.outcome }}"
+        run: python "$RUNNER_TEMP/lab_check.py" ci ship
