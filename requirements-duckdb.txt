@@ -1,6 +1,8 @@
 # The free path: DuckDB instead of Snowflake. No account, no card, no trial clock.
 # Everything the project does (load, dbt build, tests, dashboard) runs on your laptop.
 dbt-duckdb>=1.9,<2.0
-streamlit>=1.35
+# A released dbt, never a test build: some dbt adapters accept pre-releases, and pip then picks one.
+dbt-core>=1.10,<1.13
+streamlit>=1.52
 pandas>=2.2
 altair>=5.3

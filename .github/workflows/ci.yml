@@ -43,7 +43,8 @@ jobs:
           PY
 
   duckdb-windows:
-    # The same path with the Windows PowerShell commands the lessons give.
+    # The laptop path exactly as the Lab's Windows lessons give it: PowerShell, Python 3.13 (the version the
+    # lessons install), a venv, load, build twice (the incremental path), verify, and the dashboard renders.
     runs-on: windows-latest
     timeout-minutes: 25
     defaults:
@@ -53,29 +54,64 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - name: Install
+          python-version: "3.13"
+      - name: The lessons' commands, in one PowerShell session
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          python -m venv .venv
+          .venv\Scripts\Activate.ps1
           python -m pip install --upgrade pip
           pip install -r requirements-duckdb.txt
           Copy-Item profiles.yml.example profiles.yml
-      - name: Load RAW
-        run: python scripts/load_inside_airbnb_to_duckdb.py
-      - name: dbt build
-        run: dbt build --target duckdb --profiles-dir .
-      - name: Verify every layer
-        run: python scripts/verify_duckdb_build.py
+          dbt --version
+          python scripts/load_inside_airbnb_to_duckdb.py
+          dbt build --target duckdb --profiles-dir .
+          dbt build --target duckdb --profiles-dir .
+          python scripts/verify_duckdb_build.py
+          python -c "from streamlit.testing.v1 import AppTest; app = AppTest.from_file('dashboard/streamlit_app.py', default_timeout=180).run(); assert not app.exception, [e.value for e in app.exception]; assert not app.error, [e.value for e in app.error]; print({m.label: m.value for m in app.metric})"
 
-  snowflake-parse:
-    # The Snowflake path still parses: every model, ref(), source and test.
-    # dbt parse never connects, so the example profile's placeholders are enough.
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+  duckdb-mac:
+    # The same path as the Lab's Mac lessons give it: Terminal, Python 3.13, a venv, load, build twice,
+    # verify, the dashboard.
+    runs-on: macos-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
+      - name: The lessons' commands, in one Terminal session
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install -r requirements-duckdb.txt
+          cp profiles.yml.example profiles.yml
+          dbt --version
+          python scripts/load_inside_airbnb_to_duckdb.py
+          dbt build --target duckdb --profiles-dir .
+          dbt build --target duckdb --profiles-dir .
+          python scripts/verify_duckdb_build.py
+          python -c "from streamlit.testing.v1 import AppTest; app = AppTest.from_file('dashboard/streamlit_app.py', default_timeout=180).run(); assert not app.exception, [e.value for e in app.exception]; assert not app.error, [e.value for e in app.error]; print({m.label: m.value for m in app.metric})"
+
+  snowflake-parse:
+    # The Snowflake path installs and parses on all three computers: every model, ref(), source and test.
+    # dbt parse never connects, so the example profile's placeholders are enough.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
       - name: Install the Snowflake adapter
         run: |
           python -m pip install --upgrade pip
