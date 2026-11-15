@@ -196,21 +196,41 @@ files run on both.
 
 ### The free path, end to end
 
+Use Python 3.13 (3.12 and 3.14 also work; 3.15 is too new for dbt). On a Mac with Python from python.org,
+first double-click **Install Certificates.command** in Applications > Python 3.13: dbt downloads part of
+itself while it installs, and without certificates that download fails with `CERTIFICATE_VERIFY_FAILED`.
+
+Mac or Linux (Terminal):
+
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate          # Windows PowerShell: .venv\Scripts\Activate.ps1
+source .venv/bin/activate
 pip install -r requirements-duckdb.txt
-cp profiles.yml.example profiles.yml   # Windows PowerShell: Copy-Item profiles.yml.example profiles.yml
+cp profiles.yml.example profiles.yml
 python scripts/load_inside_airbnb_to_duckdb.py
 dbt build --target duckdb --profiles-dir .
 streamlit run dashboard/streamlit_app.py
 ```
 
+Windows (PowerShell):
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements-duckdb.txt
+Copy-Item profiles.yml.example profiles.yml
+python scripts/load_inside_airbnb_to_duckdb.py
+dbt build --target duckdb --profiles-dir .
+streamlit run dashboard/streamlit_app.py
+```
+
+If PowerShell says *running scripts is disabled*, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, then activate again.
+
 ## Install
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate          # Windows PowerShell: python -m venv .venv, then .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 

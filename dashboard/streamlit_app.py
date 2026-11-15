@@ -196,7 +196,7 @@ with left:
         )
         .properties(height=360)
     )
-    st.altair_chart(revenue_chart, use_container_width=True)
+    st.altair_chart(revenue_chart, width="stretch")
 
 with right:
     availability_chart = (
@@ -214,18 +214,18 @@ with right:
         )
         .properties(height=360)
     )
-    st.altair_chart(availability_chart, use_container_width=True)
+    st.altair_chart(availability_chart, width="stretch")
 
 st.subheader("Top Hosts")
 st.dataframe(
     hosts.sort_values("LISTING_COUNT", ascending=False).head(25),
-    use_container_width=True,
+    width="stretch",
     hide_index=True,
 )
 
 st.subheader("Listings")
 st.dataframe(
     listings.sort_values(["REPORTING_NEIGHBOURHOOD", "NIGHTLY_PRICE"], ascending=[True, False]),
-    use_container_width=True,
+    width="stretch",
     hide_index=True,
 )
