@@ -1,0 +1,6 @@
+# The free path: DuckDB instead of Snowflake. No account, no card, no trial clock.
+# Everything the project does (load, dbt build, tests, dashboard) runs on your laptop.
+dbt-duckdb>=1.9,<2.0
+streamlit>=1.35
+pandas>=2.2
+altair>=5.3

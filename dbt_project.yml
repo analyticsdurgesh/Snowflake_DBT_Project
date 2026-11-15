@@ -15,6 +15,11 @@ clean-targets:
   - target
   - dbt_packages
 
+
+# On DuckDB, create the few Snowflake functions DuckDB lacks (macros/duckdb_compat.sql).
+# On Snowflake this renders nothing and dbt skips it.
+on-run-start:
+  - "{{ create_duckdb_compat() }}"
 models:
   airbnb_snowflake_dbt:
     +persist_docs:

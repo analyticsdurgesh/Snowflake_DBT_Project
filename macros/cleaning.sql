@@ -1,7 +1,9 @@
 {% macro clean_price(column_name) -%}
     -- Convert currency strings such as "$1,234.50" into numeric values.
+    {#- Snowflake's regexp_replace replaces every match; DuckDB's replaces only the
+        first unless given 'g', so the flag is added on DuckDB only. #}
     try_to_decimal(
-        nullif(regexp_replace({{ column_name }}::string, '[^0-9.-]', ''), ''),
+        nullif(regexp_replace({{ column_name }}::string, '[^0-9.-]', ''{% if target.type == 'duckdb' %}, 'g'{% endif %}), ''),
         18,
         2
     )
@@ -10,7 +12,7 @@
 {% macro clean_percent(column_name) -%}
     -- Convert percent strings such as "98%" into decimal rates such as 0.98.
     try_to_decimal(
-        nullif(regexp_replace({{ column_name }}::string, '[^0-9.-]', ''), ''),
+        nullif(regexp_replace({{ column_name }}::string, '[^0-9.-]', ''{% if target.type == 'duckdb' %}, 'g'{% endif %}), ''),
         18,
         4
     ) / 100

@@ -15,7 +15,9 @@ with calendar as (
     {% if is_incremental() %}
         -- Incremental runs process recent/new calendar dates. Use full-refresh for new Inside Airbnb snapshots.
         where calendar_date >= (
-            select dateadd(day, -7, coalesce(max(calendar_date), '1900-01-01'::date))
+            -- dbt.dateadd renders Snowflake's dateadd(day, -7, ...) on Snowflake and the
+            -- DuckDB equivalent on DuckDB (DuckDB has no bare-keyword dateadd).
+            select {{ dbt.dateadd('day', -7, "coalesce(max(calendar_date), '1900-01-01'::date)") }}
             from {{ this }}
         )
     {% endif %}
@@ -39,6 +41,6 @@ select
     property_type,
     accommodates,
     estimated_unavailable_night_revenue,
-    current_timestamp() as transformed_at
+    current_timestamp as transformed_at
 
 from calendar

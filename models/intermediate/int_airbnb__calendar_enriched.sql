@@ -24,7 +24,7 @@ enriched as (
     select
         calendar.listing_id,
         calendar.calendar_date,
-        date_trunc(month, calendar.calendar_date)::date as calendar_month,
+        date_trunc('month', calendar.calendar_date)::date as calendar_month,
         calendar.is_available,
         calendar.calendar_price,
         calendar.adjusted_price,

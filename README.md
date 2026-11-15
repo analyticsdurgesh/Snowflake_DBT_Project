@@ -1,5 +1,12 @@
 # Airbnb Snowflake dbt Analytics Project
 
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/analyticsdurgesh/Snowflake_DBT_Project?quickstart=1)
+
+Try it in your browser with nothing to install: the button opens a GitHub Codespace on the
+free DuckDB path (see "Two ways to run it" below). Fork the repo first if you want to keep
+your changes.
+
+
 <!-- de-book-banner -->
 > ### Free book: *Data Engineering: From Zero to Production & Interview Ready*
 >
@@ -29,7 +36,10 @@ Public analytics engineering portfolio project that loads the Inside Airbnb open
 
 Source: [Inside Airbnb](https://insideairbnb.com/get-the-data/)
 
-Recommended classroom dataset: New York City, New York, United States.
+Bundled in `data/raw/`: **Albany, New York**, snapshot of **14 September 2026** (500 listings,
+182,500 calendar rows, 30,251 reviews). The same models work with any Inside Airbnb city that
+uses the same column layout. Inside Airbnb data is licensed CC BY 4.0; see
+[docs/INSIDE_AIRBNB_DATASET.md](docs/INSIDE_AIRBNB_DATASET.md).
 
 Expected raw files:
 
@@ -170,6 +180,32 @@ Then edit both local files with your Snowflake values. These files are ignored b
 - `config/local_credentials.json`
 - `.user.yml`
 
+## Two ways to run it
+
+| | Snowflake (the default) | DuckDB (the free path) |
+| --- | --- | --- |
+| Needs | a Snowflake account (the 30-day trial works) | nothing but Python |
+| Install | `pip install -r requirements.txt` | `pip install -r requirements-duckdb.txt` |
+| Load | `python scripts/load_inside_airbnb_to_snowflake.py` | `python scripts/load_inside_airbnb_to_duckdb.py` |
+| Build | `dbt build --profiles-dir .` | `dbt build --target duckdb --profiles-dir .` |
+| Dashboard | reads `config/local_credentials.json` | finds `airbnb.duckdb` by itself |
+
+The models are Snowflake SQL either way. On DuckDB, `macros/duckdb_compat.sql` creates the few
+Snowflake functions DuckDB does not have (it renders nothing on Snowflake), so the same model
+files run on both.
+
+### The free path, end to end
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate          # Windows PowerShell: .venv\Scripts\Activate.ps1
+pip install -r requirements-duckdb.txt
+cp profiles.yml.example profiles.yml   # Windows PowerShell: Copy-Item profiles.yml.example profiles.yml
+python scripts/load_inside_airbnb_to_duckdb.py
+dbt build --target duckdb --profiles-dir .
+streamlit run dashboard/streamlit_app.py
+```
+
 ## Install
 
 ```bash
@@ -195,7 +231,7 @@ dbt test --profiles-dir .
 dbt docs generate --profiles-dir .
 ```
 
-For a new Inside Airbnb snapshot:
+For a new Inside Airbnb snapshot (on DuckDB, add `--target duckdb`):
 
 ```bash
 python scripts/load_inside_airbnb_to_snowflake.py
@@ -203,13 +239,17 @@ dbt run --full-refresh --select fct_listing_calendar+ --profiles-dir .
 dbt test --profiles-dir .
 ```
 
+Why the full refresh: `fct_listing_calendar` is incremental, so a plain run keeps the old
+snapshot's rows and merges the new ones in (the fact table ends up larger than its source).
+
 ## Run the Dashboard
 
 ```bash
 streamlit run dashboard/streamlit_app.py
 ```
 
-The dashboard reads local Snowflake values from `config/local_credentials.json`.
+The dashboard reads local Snowflake values from `config/local_credentials.json`. Without that
+file, it reads `airbnb.duckdb` (the free path); `-- --duckdb` forces DuckDB.
 
 ## Example Business Questions
 

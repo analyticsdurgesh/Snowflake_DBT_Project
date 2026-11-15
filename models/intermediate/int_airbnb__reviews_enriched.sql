@@ -21,7 +21,7 @@ select
     reviews.listing_id,
     listings.host_id,
     reviews.review_date,
-    date_trunc(month, reviews.review_date)::date as review_month,
+    date_trunc('month', reviews.review_date)::date as review_month,
     reviews.reviewer_id,
     reviews.reviewer_name,
     reviews.review_comments,
