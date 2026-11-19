@@ -1,72 +1,128 @@
+# ==============================================================================
+# models/staging/_staging_models.yml  -  docs and tests for the STAGING models
+# ==============================================================================
+# WHAT IS THIS FILE?
+#   A dbt "properties" file. The .sql files say HOW a model is built.
+#   This .yml file says WHAT the model means and WHAT must always be true:
+#     * description  -> documentation (shown in "dbt docs" and, because of
+#                       persist_docs in dbt_project.yml, saved as COMMENTs in
+#                       Snowflake)
+#     * data_tests   -> data quality checks run by "dbt test"
+#
+# HOW IS IT LINKED TO THE .sql FILES?
+#   By NAME only. "- name: stg_airbnb__listings" below describes the model in
+#   the file stg_airbnb__listings.sql. Nothing else connects them.
+#
+# NAMING CONVENTION:  stg_<source>__<table>
+#   stg     = staging layer
+#   airbnb  = where the data comes from
+#   __      = two underscores separate the source from the table name
+# ==============================================================================
+
+# Layout version of dbt properties files. Always 2.
 version: 2
 
+# models: starts the list of models described in this file.
 models:
+
+  # ----------------------------------------------------------------------------
+  # name = must equal the .sql file name without ".sql".
   - name: stg_airbnb__listings
+    # description = what one row of this model represents.
     description: Cleaned and typed listing records from the raw Inside Airbnb listings file.
+    # columns: the columns we document and test (listing every column is optional).
     columns:
       - name: listing_id
         description: Unique Airbnb listing identifier.
-        tests:
+        # data_tests: generic tests for this column.
+        # Each one compiles into a SELECT that returns the BAD rows.
+        # Zero bad rows means the test passes.
+        data_tests:
+          # No listing may have an empty id.
           - not_null
+          # No listing id may appear twice. With not_null this proves that
+          # listing_id is the PRIMARY KEY (one row = one listing).
           - unique
       - name: host_id
         description: Airbnb host identifier.
-        tests:
+        data_tests:
+          # Every listing must have a host.
           - not_null
       - name: room_type
         description: Airbnb room type classification.
-        tests:
+        data_tests:
+          # accepted_values: every non-NULL value must be in the list below.
+          # It catches surprises such as a new or misspelled category.
           - accepted_values:
+              # arguments: holds the settings passed to the test.
               arguments:
+                # values = the complete list of allowed values.
                 values: ['Entire home/apt', 'Private room', 'Shared room', 'Hotel room']
       - name: nightly_price
+        # A column with only a description and no tests is perfectly fine.
         description: Listing base nightly price parsed from the source currency string.
 
+  # ----------------------------------------------------------------------------
   - name: stg_airbnb__calendar
     description: Cleaned and typed listing-date calendar availability records.
     columns:
       - name: listing_id
         description: Airbnb listing identifier.
-        tests:
+        data_tests:
           - not_null
+          # relationships: a FOREIGN KEY check, also called referential integrity.
+          # It fails if a listing_id here does NOT exist in the other model.
+          # In words: "no calendar row may point at a listing we do not have".
           - relationships:
               arguments:
+                # to = the "parent" model to look in. ref() points at another
+                # dbt model by name (ref is explained in the .sql files).
                 to: ref('stg_airbnb__listings')
+                # field = the column in the parent model that must contain the value.
                 field: listing_id
       - name: calendar_date
         description: Date for the listing availability record.
-        tests:
+        data_tests:
+          # Fails if a raw date text could not be converted into a real date.
           - not_null
       - name: is_available
         description: True when the listing was available on the calendar date.
-        tests:
+        data_tests:
           - accepted_values:
               arguments:
+                # A boolean column may only hold true or false.
                 values: [true, false]
+                # quote: false -> compare as real booleans (true), not as the
+                # text 'true'. By default dbt wraps the values in quotes.
                 quote: false
 
+  # ----------------------------------------------------------------------------
   - name: stg_airbnb__reviews
     description: Cleaned and typed review records.
     columns:
       - name: review_id
         description: Unique Airbnb review identifier.
-        tests:
+        data_tests:
+          # Primary key of reviews: never empty, never repeated.
           - not_null
           - unique
       - name: listing_id
         description: Airbnb listing identifier.
-        tests:
+        data_tests:
           - not_null
+          # Every review must belong to a listing that exists in staging.
           - relationships:
               arguments:
                 to: ref('stg_airbnb__listings')
                 field: listing_id
 
+  # ----------------------------------------------------------------------------
   - name: stg_airbnb__neighbourhoods
     description: Cleaned neighbourhood reference values.
     columns:
       - name: neighbourhood
         description: Neighbourhood name.
-        tests:
+        data_tests:
+          # A lookup table needs exactly one row per neighbourhood name.
           - not_null
           - unique

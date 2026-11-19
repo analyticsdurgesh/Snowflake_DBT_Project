@@ -1,39 +1,152 @@
+# ==============================================================================
+# dbt_project.yml  -  the "identity card" of a dbt project
+# ==============================================================================
+# WHAT IS dbt?
+#   dbt (data build tool) handles the "T" (Transform) of ELT.
+#   The data is ALREADY inside Snowflake (our Python loader put it there).
+#   You write SELECT statements. dbt wraps each SELECT in the correct
+#   CREATE VIEW / CREATE TABLE / MERGE statement, runs them in the right order,
+#   tests the results, and documents them.
+#   dbt never moves data out of the warehouse. All work happens in Snowflake.
+#
+# WHAT IS THIS FILE?
+#   A folder becomes a dbt project the moment it contains dbt_project.yml.
+#   dbt reads this file FIRST on every command to learn:
+#     * the project's name
+#     * which connection profile to use
+#     * which folders contain models, tests, macros, ...
+#     * default settings ("configs") for groups of models
+#
+# YAML BASICS (the format of this file)
+#   * "key: value" pairs.
+#   * Indentation (2 spaces) means "belongs to the line above". Never use tabs.
+#   * A dash "- item" is one entry of a list.
+#   * Everything after "#" is a comment.
+# ==============================================================================
+
+# name = the project's name. Lower-case letters and underscores only.
+# It is reused below under "models:" to say "these settings are for MY models".
 name: airbnb_snowflake_dbt
+
+# version = the version of YOUR project. It is only a label for humans.
+# It has nothing to do with the version of dbt that is installed.
 version: 1.0.0
+
+# config-version = the version of this FILE's layout. It has been 2 since
+# dbt v0.17 and must stay 2. It tells dbt how to read the keys below.
 config-version: 2
 
+# profile = the name of the connection profile to look up inside profiles.yml.
+# dbt opens profiles.yml, finds the top-level key "airbnb_snowflake", and uses
+# the account / user / password stored there to log in to Snowflake.
 profile: airbnb_snowflake
 
-model-paths: ["models"]
-analysis-paths: ["analyses"]
-test-paths: ["tests"]
-macro-paths: ["macros"]
-seed-paths: ["seeds"]
-snapshot-paths: ["snapshots"]
+# ------------------------------------------------------------------------------
+# FOLDER PATHS - tell dbt where each kind of file lives.
+# Each value is a list (square brackets), so more than one folder is allowed.
+# ------------------------------------------------------------------------------
 
+# model-paths = folders holding MODELS.
+# A model is one .sql file containing one SELECT statement.
+# The file name becomes the table/view name in Snowflake.
+# Example: models/marts/dim_hosts.sql  ->  ANALYTICS.DIM_HOSTS
+model-paths: ["models"]
+
+# macro-paths = folders holding MACROS.
+# A macro is a reusable piece of SQL written in Jinja, like a function.
+macro-paths: ["macros"]
+
+# test-paths = folders holding SINGULAR TESTS.
+# A singular test is one .sql file that selects the "bad" rows.
+# If the query returns zero rows the test passes. Any row returned is a failure.
+test-paths: ["tests"]
+
+# Note: dbt supports three more kinds of folder. This project does not use
+# them, so they are left out:
+#   analysis-paths  ad-hoc queries that dbt compiles but never runs
+#   seed-paths      small CSV files loaded as tables with "dbt seed"
+#   snapshot-paths  history tracking with "dbt snapshot"
+
+# clean-targets = the folders the command "dbt clean" deletes.
+# Both are generated folders, safe to delete at any time.
 clean-targets:
+  # target/ holds compiled SQL and run artifacts (manifest.json, run_results.json).
   - target
+  # dbt_packages/ holds third-party packages downloaded by "dbt deps".
   - dbt_packages
 
-
-# On DuckDB, create the few Snowflake functions DuckDB lacks (macros/duckdb_compat.sql).
-# On Snowflake this renders nothing and dbt skips it.
-on-run-start:
-  - "{{ create_duckdb_compat() }}"
+# ------------------------------------------------------------------------------
+# MODEL CONFIGS - default settings applied to groups of models by folder.
+#
+# A leading "+" marks a CONFIG (a setting), as opposed to a folder name.
+#   "staging:"        -> a folder inside models/
+#   "+materialized:"  -> a setting for everything inside that folder
+#
+# Settings INHERIT downward: a setting on a folder applies to every model in
+# it. A more specific setting wins, in this order (weakest to strongest):
+#   dbt_project.yml  <  the .yml file next to the model  <  config() block
+#   written at the top of the model's own .sql file.
+# ------------------------------------------------------------------------------
 models:
+
+  # This key must equal the project "name" above.
+  # It means "the following settings apply to the models of this project".
   airbnb_snowflake_dbt:
+
+    # persist_docs = copy the descriptions written in our .yml files into
+    # Snowflake as real COMMENTs. After a run, the description of a table and
+    # its columns is visible in the Snowflake UI, not only in the dbt docs site.
     +persist_docs:
+      # relation: true -> write the MODEL description as a table/view comment.
       relation: true
+      # columns: true  -> write each COLUMN description as a column comment.
       columns: true
 
+    # -------- Layer 1: STAGING (models/staging/) --------
+    # Job: clean ONE raw table each. Rename columns, fix data types, trim text.
+    # No joins and no business logic.
     staging:
+      # materialized = HOW dbt stores a model in the warehouse. The choices are:
+      #   view        -> CREATE VIEW. Stores only the query, no data. Always
+      #                  fresh and costs no storage, but the query re-runs every
+      #                  time someone selects from it.
+      #   table       -> CREATE TABLE AS SELECT. Stores the data. Fast to read,
+      #                  but is fully rebuilt on every dbt run.
+      #   incremental -> a table that is only APPENDED/MERGED with new rows on
+      #                  each run instead of being rebuilt. Best for big facts.
+      #   ephemeral   -> nothing is created. The SQL is pasted into the models
+      #                  that use it as a CTE.
+      # Staging is light cleaning, so a view is the standard choice.
       +materialized: view
+      # schema = the Snowflake schema these models are created in.
+      # See macros/generate_schema_name.sql for how the final name is decided.
       +schema: staging
 
+    # -------- Layer 2: INTERMEDIATE (models/intermediate/) --------
+    # Job: join staging models together and add reusable business logic.
+    # These are building blocks for marts, not meant for dashboards.
     intermediate:
+      # Views again: these are stepping stones, so there is no need to store them.
       +materialized: view
+      # Built in the INTERMEDIATE schema.
       +schema: intermediate
 
+    # -------- Layer 3: MARTS (models/marts/) --------
+    # Job: the final, business-ready tables that dashboards and analysts query.
     marts:
+      # Tables: dashboards read these many times, so we pay the cost once at
+      # build time and make every read fast.
+      # (fct_listing_calendar overrides this with "incremental" in its own file.)
       +materialized: table
+      # Built in the ANALYTICS schema, the one the dashboard reads from.
       +schema: analytics
+
+# ------------------------------------------------------------------------------
+# on-run-start = SQL that dbt runs once, before it builds any model.
+# This project runs on Snowflake and, for free, on DuckDB. DuckDB lacks a few
+# Snowflake functions (try_to_number, try_to_date, ...), so on DuckDB this hook
+# creates them first (see macros/duckdb_compat.sql). On Snowflake the macro
+# returns nothing and dbt skips it.
+# ------------------------------------------------------------------------------
+on-run-start:
+  - "{{ create_duckdb_compat() }}"

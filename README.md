@@ -3,7 +3,7 @@
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/analyticsdurgesh/Snowflake_DBT_Project?quickstart=1)
 
 Try it in your browser with nothing to install: the button opens a GitHub Codespace on the
-free DuckDB path (see "Two ways to run it" below). Fork the repo first if you want to keep
+free DuckDB path (see [Two ways to run it](#two-ways-to-run-it)). Fork the repo first if you want to keep
 your changes.
 
 
@@ -19,67 +19,76 @@ your changes.
 <!-- /de-book-banner -->
 
 
-Public analytics engineering portfolio project that loads the Inside Airbnb open dataset into Snowflake, transforms it with dbt, validates data quality, and powers a Streamlit reporting dashboard.
+An end-to-end analytics engineering project. It loads the [Inside Airbnb](https://insideairbnb.com/get-the-data/) open dataset into Snowflake, transforms it with dbt, tests the data, and shows the result in a Streamlit dashboard.
 
-## What This Project Demonstrates
+New here? Read [PROJECT_GUIDE.md](PROJECT_GUIDE.md) first, then [FILES_AND_FOLDERS.md](FILES_AND_FOLDERS.md) for what every folder and file does. It explains the whole project and the data end to end, and follows one real row from the CSV file to the dashboard.
 
-- Snowflake raw-zone setup for open data ingestion
-- Local CSV/GZIP loading into Snowflake internal stages
-- dbt staging, intermediate, and mart model layers
-- Incremental fact modeling with Snowflake merge strategy
-- dbt generic tests and singular tests for data quality
-- Model documentation with persisted docs support
-- Streamlit dashboard connected to analytics marts
-- Public-safe configuration with ignored local credential files
+Every file is commented line by line for beginners, and every dbt keyword is explained in the file where it is first used (see [Where each dbt concept is explained](#where-each-dbt-concept-is-explained)).
 
-## Dataset
+## Two ways to run it
 
-Source: [Inside Airbnb](https://insideairbnb.com/get-the-data/)
+| | Snowflake (the default) | DuckDB (the free path) |
+| --- | --- | --- |
+| Needs | a Snowflake account (the 30-day trial works) | nothing but Python |
+| One command | `python run_pipeline.py` | `python run_pipeline.py --duckdb` |
+| Dashboard | `streamlit run dashboard/streamlit_app.py` | `streamlit run dashboard/streamlit_app.py -- --duckdb` |
 
-Bundled in `data/raw/`: **Albany, New York**, snapshot of **14 September 2026** (500 listings,
-182,500 calendar rows, 30,251 reviews). The same models work with any Inside Airbnb city that
-uses the same column layout. Inside Airbnb data is licensed CC BY 4.0; see
-[docs/INSIDE_AIRBNB_DATASET.md](docs/INSIDE_AIRBNB_DATASET.md).
+DuckDB is a free database that lives in one file (`airbnb.duckdb`) on your computer. The models are Snowflake SQL either way: on DuckDB, `macros/duckdb_compat.sql` creates the few Snowflake functions DuckDB does not have (it renders nothing on Snowflake), so the same model files run on both.
 
-Expected raw files:
+## Run it
 
-```text
-data/raw/listings.csv.gz
-data/raw/calendar.csv.gz
-data/raw/reviews.csv.gz
-data/raw/neighbourhoods.csv
+Step-by-step commands for **Mac and Windows**, from installing Python to opening the dashboard, are in [HOW_TO_RUN.md](HOW_TO_RUN.md). The setup scripts `setup_mac.sh` and `setup_windows.bat` do the one-time part for you, and install the packages for both paths.
+
+The short version, once the packages are installed and `profiles.yml` holds your Snowflake login:
+
+```bash
+python run_pipeline.py
 ```
 
-Inside Airbnb does not provide booking transactions. This project uses calendar availability and price data as a classroom-friendly proxy for unavailable-night revenue.
+No Snowflake account? The same pipeline on DuckDB needs nothing filled in:
 
-## Architecture
+```bash
+python run_pipeline.py --duckdb
+```
+
+| Step | Command it runs | What happens |
+| --- | --- | --- |
+| 1 | `python scripts/load_inside_airbnb_to_snowflake.py` | Creates the database, warehouse, schemas, stage and file format, then loads the four CSV files into the `RAW` schema (with `--duckdb`: `python scripts/load_inside_airbnb_to_duckdb.py`) |
+| 2 | `dbt debug --connection` | Checks the dbt configuration and the Snowflake connection |
+| 3 | `dbt run` | Builds 13 models: 7 views, 5 tables, 1 incremental table |
+| 4 | `dbt test` | Runs 47 data quality tests: 46 pass and 1 warns on purpose |
+| 5 | `dbt docs generate` | Builds the documentation site files |
+
+Options:
+
+```bash
+python run_pipeline.py --full-refresh    # rebuild the incremental table from zero
+python run_pipeline.py --dashboard       # open the dashboard when the pipeline finishes
+python run_pipeline.py --duckdb          # the free path, on DuckDB
+```
+
+Afterwards:
+
+```bash
+streamlit run dashboard/streamlit_app.py     # dashboard at http://localhost:8501
+dbt docs serve --profiles-dir .              # docs and lineage graph at http://localhost:8080
+python scripts/verify_duckdb_build.py        # free path: check every layer of airbnb.duckdb
+```
+
+On the free path, add `-- --duckdb` to the Streamlit command and `--target duckdb` to the dbt one.
+
+The dbt commands end with `--profiles-dir .`, which tells dbt to use the `profiles.yml` in the project folder. dbt would find it there anyway when you run the command from the project folder (it looks in the current folder first, then in `~/.dbt/`). Writing the flag makes the choice explicit.
+
+## How the data flows
 
 ```mermaid
 flowchart LR
-    A["Inside Airbnb files<br/>listings, calendar, reviews, neighbourhoods"] --> B["Python loader<br/>load_inside_airbnb_to_snowflake.py"]
-    B --> C["Snowflake internal stage<br/>INSIDE_AIRBNB_STAGE"]
-    C --> D["RAW schema<br/>text-preserving raw tables"]
-    D --> E["dbt staging views<br/>clean + cast + standardize"]
-    E --> F["dbt intermediate layer<br/>joins + enrichment + revenue proxy"]
-    F --> G["dbt marts<br/>dimensions, facts, monthly aggregates"]
-    G --> H["Streamlit dashboard<br/>neighbourhood, host, listing analytics"]
-
-    I["profiles.yml<br/>ignored local Snowflake config"] -.-> J["dbt CLI"]
-    J --> E
-    J --> F
-    J --> G
-
-    style A fill:#E0F2FE,stroke:#0284C7,color:#0F172A
-    style B fill:#F8FAFC,stroke:#64748B,color:#0F172A
-    style C fill:#FEF3C7,stroke:#D97706,color:#0F172A
-    style D fill:#FEF3C7,stroke:#D97706,color:#0F172A
-    style E fill:#DCFCE7,stroke:#16A34A,color:#0F172A
-    style F fill:#DCFCE7,stroke:#16A34A,color:#0F172A
-    style G fill:#DCFCE7,stroke:#16A34A,color:#0F172A
-    style H fill:#0F172A,stroke:#22C55E,color:#FFFFFF
+    A["data/raw/*.csv"] -->|"Python loader<br/>PUT + COPY INTO"| B["RAW<br/>4 text tables"]
+    B -->|"dbt: source()"| C["STAGING<br/>4 views<br/>clean + cast"]
+    C -->|"dbt: ref()"| D["INTERMEDIATE<br/>3 views<br/>join + enrich"]
+    D -->|"dbt: ref()"| E["ANALYTICS<br/>6 tables<br/>dim, fct, agg"]
+    E --> F["Streamlit<br/>dashboard"]
 ```
-
-## dbt Lineage
 
 ```mermaid
 flowchart TB
@@ -97,213 +106,97 @@ flowchart TB
 
     IL --> DL["dim_listings"]
     IL --> DH["dim_hosts"]
-    IC --> FC["fct_listing_calendar<br/>incremental merge"]
+    IC --> FC["fct_listing_calendar<br/>(incremental)"]
     IR --> FR["fct_reviews"]
     FC --> AL["agg_listing_monthly_performance"]
     AL --> AN["agg_neighbourhood_monthly_performance"]
-
-    DL --> DASH["Streamlit dashboard"]
-    DH --> DASH
-    AL --> DASH
-    AN --> DASH
-
-    style L fill:#E0F2FE,stroke:#0284C7,color:#0F172A
-    style C fill:#E0F2FE,stroke:#0284C7,color:#0F172A
-    style R fill:#E0F2FE,stroke:#0284C7,color:#0F172A
-    style N fill:#E0F2FE,stroke:#0284C7,color:#0F172A
-    style SL fill:#DCFCE7,stroke:#16A34A,color:#0F172A
-    style SC fill:#DCFCE7,stroke:#16A34A,color:#0F172A
-    style SR fill:#DCFCE7,stroke:#16A34A,color:#0F172A
-    style SN fill:#DCFCE7,stroke:#16A34A,color:#0F172A
-    style IL fill:#FEF3C7,stroke:#D97706,color:#0F172A
-    style IC fill:#FEF3C7,stroke:#D97706,color:#0F172A
-    style IR fill:#FEF3C7,stroke:#D97706,color:#0F172A
-    style DL fill:#F8FAFC,stroke:#64748B,color:#0F172A
-    style DH fill:#F8FAFC,stroke:#64748B,color:#0F172A
-    style FC fill:#F8FAFC,stroke:#64748B,color:#0F172A
-    style FR fill:#F8FAFC,stroke:#64748B,color:#0F172A
-    style AL fill:#F8FAFC,stroke:#64748B,color:#0F172A
-    style AN fill:#F8FAFC,stroke:#64748B,color:#0F172A
-    style DASH fill:#0F172A,stroke:#22C55E,color:#FFFFFF
 ```
 
-## dbt Model Layers
+| Layer | Schema | Built as | Job |
+| --- | --- | --- | --- |
+| Raw | `RAW` | tables (by the loader) | Untouched copy of the CSV files, every column is text |
+| Staging | `STAGING` | views | Clean one raw table each: rename, cast types, trim |
+| Intermediate | `INTERMEDIATE` | views | Join staging models and add reusable business logic |
+| Marts | `ANALYTICS` | tables | Final dimension, fact and aggregate tables for the dashboard |
 
-| Layer | Models | Purpose |
-| --- | --- | --- |
-| Sources | `RAW.LISTINGS`, `RAW.CALENDAR`, `RAW.REVIEWS`, `RAW.NEIGHBOURHOODS` | Raw files loaded into Snowflake |
-| Staging | `stg_airbnb__*` | Cleaning, type casting, standard column names |
-| Intermediate | `int_airbnb__*` | Reusable joins, enrichment, revenue proxy logic |
-| Marts | `dim_listings`, `dim_hosts`, `fct_listing_calendar`, `fct_reviews` | Analytics-ready dimensions and facts |
-| Aggregates | `agg_listing_monthly_performance`, `agg_neighbourhood_monthly_performance` | Reporting-ready monthly metrics |
-
-## Repository Structure
+## Project structure
 
 ```text
 .
-├── analyses/
-├── dashboard/
-│   └── streamlit_app.py
-├── data/raw/
-├── dbt_project.yml
-├── profiles.yml.example
-├── config/
-│   └── local_credentials.example.json
+├── PROJECT_GUIDE.md                     the whole project and the data, explained end to end
+├── HOW_TO_RUN.md                        step-by-step commands for Mac and Windows
+├── FILES_AND_FOLDERS.md                 every folder and file explained
+├── run_pipeline.py                      one command that runs everything
+├── setup_mac.sh                         one-time setup script for Mac
+├── setup_windows.bat                    one-time setup script for Windows
+├── dbt_project.yml                      dbt project settings (paths, schemas, materializations)
+├── profiles.yml.example                 template for your private profiles.yml
+├── requirements.txt                     Python packages (both paths)
+├── requirements-duckdb.txt              Python packages for the free path only
 ├── docs/
-├── macros/
-├── models/
-│   ├── staging/
-│   ├── intermediate/
-│   └── marts/
-├── scripts/
-│   └── load_inside_airbnb_to_snowflake.py
+│   └── INSIDE_AIRBNB_DATASET.md         where the data comes from, its licence, what changed
 ├── setup/
-│   └── snowflake_setup.sql
-├── tests/
-└── requirements.txt
+│   └── snowflake_setup.sql              database, warehouse, schemas, stage, file format
+├── scripts/
+│   ├── load_inside_airbnb_to_snowflake.py   loads data/raw into the RAW schema
+│   ├── load_inside_airbnb_to_duckdb.py      the same, into airbnb.duckdb (free path)
+│   └── verify_duckdb_build.py               checks a finished DuckDB build
+├── data/raw/                            the four Inside Airbnb files
+├── macros/
+│   ├── cleaning.sql                     clean_price, clean_percent, to_boolean
+│   ├── duckdb_compat.sql                Snowflake functions for DuckDB (free path)
+│   └── generate_schema_name.sql         gives schemas clean names
+├── models/
+│   ├── staging/                         4 models + sources and tests
+│   ├── intermediate/                    3 models + tests
+│   └── marts/                           6 models + tests
+├── tests/                               2 singular (custom SQL) tests
+├── dashboard/
+│   └── streamlit_app.py                 the dashboard
+├── .devcontainer/                       what GitHub Codespaces runs
+└── .github/workflows/                   automatic checks on every change
 ```
 
-## Public-Safe Credential Setup
+`profiles.yml`, `airbnb.duckdb`, `.venv/`, `target/`, `logs/` and `.user.yml` are created locally and ignored by git.
 
-This public repository does not commit real credentials and does not require environment variables.
+## Where each dbt concept is explained
 
-Create local-only files from the examples:
+| Concept | Explained in |
+| --- | --- |
+| What dbt is, `dbt_project.yml`, folder paths, `+` configs, `materialized` (view, table, incremental, ephemeral), `persist_docs` | `dbt_project.yml` |
+| `profiles.yml`, profile, target, outputs, threads, a second target (`duckdb`) | `profiles.yml.example` |
+| `on-run-start` hooks, running Snowflake SQL on DuckDB | `macros/duckdb_compat.sql` |
+| Jinja (`{{ }}`, `{% %}`, comments), macros, whitespace control | `macros/cleaning.sql` |
+| Overriding a built-in macro, `target`, filters | `macros/generate_schema_name.sql` |
+| Sources, `source()`, generic tests (`not_null`, `unique`) | `models/staging/_staging_sources.yml` |
+| Properties files, `accepted_values`, `relationships` | `models/staging/_staging_models.yml` |
+| What a model is, the CTE pattern, calling macros | `models/staging/stg_airbnb__calendar.sql` |
+| `ref()`, the dependency graph (DAG), `source()` versus `ref()` | `models/intermediate/int_airbnb__listing_enriched.sql` |
+| `config()`, incremental models, `merge`, `unique_key`, `on_schema_change`, `cluster_by`, `is_incremental()`, `this`, `--full-refresh` | `models/marts/fct_listing_calendar.sql` |
+| Fact versus dimension tables, grain, aggregation | `models/marts/dim_hosts.sql`, `models/marts/dim_listings.sql` |
+| Singular tests and how a test passes or fails | `tests/assert_no_duplicate_listing_calendar.sql` |
+| `dbt debug`, `run`, `test`, `docs generate`, `build` | `run_pipeline.py` |
+| Seeds, snapshots and analyses (not used here, described in one line each) | `dbt_project.yml` |
 
-```bash
-cp profiles.yml.example profiles.yml
-cp config/local_credentials.example.json config/local_credentials.json
-```
+## About the data
 
-Then edit both local files with your Snowflake values. These files are ignored by git:
+The files in `data/raw/` are one Inside Airbnb snapshot of Albany, New York, published as the 14 September 2026 snapshot: 500 listings, 182,500 calendar rows, 30,251 reviews and 15 wards. Inside Airbnb data is licensed CC BY 4.0; see [docs/INSIDE_AIRBNB_DATASET.md](docs/INSIDE_AIRBNB_DATASET.md). [PROJECT_GUIDE.md](PROJECT_GUIDE.md) describes the data in detail.
 
-- `profiles.yml`
-- `config/local_credentials.json`
-- `.user.yml`
+Two things to know:
 
-## Two ways to run it
+- **Prices come from the listing.** From this snapshot on, the calendar file has no price columns. The staging model fills them with NULL, and each night takes its listing's own price instead (467 of the 500 listings have one).
+- **Revenue is an estimate.** Inside Airbnb has no booking data. The project treats a night that is no longer available as booked and counts its price as revenue.
 
-| | Snowflake (the default) | DuckDB (the free path) |
-| --- | --- | --- |
-| Needs | a Snowflake account (the 30-day trial works) | nothing but Python |
-| Install | `pip install -r requirements.txt` | `pip install -r requirements-duckdb.txt` |
-| Load | `python scripts/load_inside_airbnb_to_snowflake.py` | `python scripts/load_inside_airbnb_to_duckdb.py` |
-| Build | `dbt build --profiles-dir .` | `dbt build --target duckdb --profiles-dir .` |
-| Dashboard | reads `config/local_credentials.json` | finds `airbnb.duckdb` by itself |
+To load a different city or a newer snapshot, replace the files in `data/raw/` and run `python run_pipeline.py --full-refresh` (add `--duckdb` on the free path). The full refresh matters: `fct_listing_calendar` is incremental, so a plain run would keep the old snapshot's rows.
 
-The models are Snowflake SQL either way. On DuckDB, `macros/duckdb_compat.sql` creates the few
-Snowflake functions DuckDB does not have (it renders nothing on Snowflake), so the same model
-files run on both.
+## PrepNPlaced Project Lab
 
-### The free path, end to end
+This project is also a guided lab on PrepNPlaced. `.github/workflows/prepnplaced-lab.yml` ticks the lab's checkpoints in your own fork. Keep that file exactly as it is: the lab only counts a run when it matches the published version byte for byte. In this repository itself the workflow does nothing.
 
-Use Python 3.13 (3.12 and 3.14 also work; 3.15 is too new for dbt). On a Mac with Python from python.org,
-first double-click **Install Certificates.command** in Applications > Python 3.13: dbt downloads part of
-itself while it installs, and without certificates that download fails with `CERTIFICATE_VERIFY_FAILED`.
+## Security
 
-Mac or Linux (Terminal):
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-duckdb.txt
-cp profiles.yml.example profiles.yml
-python scripts/load_inside_airbnb_to_duckdb.py
-dbt build --target duckdb --profiles-dir .
-streamlit run dashboard/streamlit_app.py
-```
-
-Windows (PowerShell):
-
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -r requirements-duckdb.txt
-Copy-Item profiles.yml.example profiles.yml
-python scripts/load_inside_airbnb_to_duckdb.py
-dbt build --target duckdb --profiles-dir .
-streamlit run dashboard/streamlit_app.py
-```
-
-If PowerShell says *running scripts is disabled*, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, then activate again.
-
-## Install
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate          # Windows PowerShell: python -m venv .venv, then .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
-
-## Load Raw Data
-
-```bash
-python scripts/load_inside_airbnb_to_snowflake.py
-```
-
-The loader creates Snowflake objects from `setup/snowflake_setup.sql`, uploads the local raw files to a Snowflake internal stage, recreates raw tables from CSV headers, and copies data into the `RAW` schema.
-
-## Run dbt
-
-```bash
-dbt debug --profiles-dir .
-dbt run --profiles-dir .
-dbt test --profiles-dir .
-dbt docs generate --profiles-dir .
-```
-
-For a new Inside Airbnb snapshot (on DuckDB, add `--target duckdb`):
-
-```bash
-python scripts/load_inside_airbnb_to_snowflake.py
-dbt run --full-refresh --select fct_listing_calendar+ --profiles-dir .
-dbt test --profiles-dir .
-```
-
-Why the full refresh: `fct_listing_calendar` is incremental, so a plain run keeps the old
-snapshot's rows and merges the new ones in (the fact table ends up larger than its source).
-
-## Run the Dashboard
-
-```bash
-streamlit run dashboard/streamlit_app.py
-```
-
-The dashboard reads local Snowflake values from `config/local_credentials.json`. Without that
-file, it reads `airbnb.duckdb` (the free path); `-- --duckdb` forces DuckDB.
-
-## Example Business Questions
-
-- Which neighbourhoods have the highest estimated unavailable-night revenue?
-- Which room types have the highest average daily price?
-- Which hosts manage the most listings?
-- Which neighbourhoods have the lowest availability rate?
-- How does listing availability vary by month?
-
-## Data Quality
-
-The project includes tests for:
-
-- Source primary identifiers
-- Listing and review uniqueness
-- Required listing/calendar/review fields
-- Room type accepted values
-- Calendar-to-listing relationships
-- Non-negative prices
-- Duplicate listing-date checks
-
-## Security Notes
-
-Do not commit:
-
-- Snowflake usernames or passwords
-- `profiles.yml`
-- `config/local_credentials.json`
-- dbt `target/`
-- dbt `logs/`
-- Python virtual environments
-
-The committed files contain placeholders only.
+`profiles.yml` contains your Snowflake password and is ignored by git. Never commit it. Only `profiles.yml.example`, which holds placeholders, is committed. The free path needs no password at all.
 
 ## Owner
 
-Built by [Durgesh Yadav](https://github.com/analyticsdurgesh) as a Snowflake, dbt, and analytics engineering portfolio project.
+Built by [Durgesh Yadav](https://github.com/analyticsdurgesh) as a Snowflake, dbt and analytics engineering portfolio project.

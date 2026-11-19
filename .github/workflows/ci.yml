@@ -39,7 +39,8 @@ jobs:
           assert not app.error, [e.value for e in app.error]
           metrics = {m.label: m.value for m in app.metric}
           print(metrics)
-          assert metrics.get("Avg Nightly Price") not in (None, "n/a"), metrics
+          assert metrics.get("Avg Price") not in (None, "n/a"), metrics
+          assert metrics.get("Est. Revenue") not in (None, "n/a", "$0"), metrics
           PY
 
   duckdb-windows:
