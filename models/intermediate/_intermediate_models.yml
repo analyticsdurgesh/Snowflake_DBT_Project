@@ -1,17 +1,41 @@
+# ==============================================================================
+# models/intermediate/_intermediate_models.yml  -  docs and tests, INTERMEDIATE layer
+# ==============================================================================
+# WHAT IS THE INTERMEDIATE LAYER?
+#   The middle step between staging (clean copies of raw tables) and marts
+#   (final business tables). Here we JOIN staging models together and add
+#   business logic that several marts need, so the logic is written only once.
+#
+# NAMING CONVENTION:  int_<source>__<what it contains>
+#
+# This is a dbt "properties" file. It is linked to the .sql files by model name.
+#   description -> documentation (dbt docs + Snowflake COMMENTs via persist_docs)
+#   data_tests  -> checks that "dbt test" runs. A test passes when its query
+#                  finds zero bad rows.
+# ==============================================================================
+
+# Layout version of dbt properties files. Always 2.
 version: 2
 
+# models: the list of models described in this file.
 models:
+
+  # name = the .sql file name without ".sql".
   - name: int_airbnb__listing_enriched
     description: Listing records enriched with reporting neighbourhood, host tenure, and classroom-friendly buckets.
     columns:
       - name: listing_id
         description: Unique Airbnb listing identifier.
-        tests:
+        data_tests:
+          # Still never empty after the join...
           - not_null
+          # ...and still one row per listing. This test protects against a
+          # classic bug: a join that accidentally DUPLICATES rows (a "fan-out").
           - unique
       - name: reporting_neighbourhood
         description: Best available neighbourhood name for reporting.
-        tests:
+        data_tests:
+          # The model fills gaps with 'Unknown', so this may never be NULL.
           - not_null
 
   - name: int_airbnb__calendar_enriched
@@ -19,15 +43,16 @@ models:
     columns:
       - name: listing_id
         description: Airbnb listing identifier.
-        tests:
+        data_tests:
           - not_null
       - name: calendar_date
         description: Calendar date.
-        tests:
+        data_tests:
           - not_null
       - name: estimated_unavailable_night_revenue
         description: Revenue proxy for unavailable nights using adjusted price, calendar price, or listing base price.
-        tests:
+        data_tests:
+          # The model returns 0 when no price is known, so NULL means a bug.
           - not_null
 
   - name: int_airbnb__reviews_enriched
@@ -35,6 +60,7 @@ models:
     columns:
       - name: review_id
         description: Unique Airbnb review identifier.
-        tests:
+        data_tests:
+          # One row per review, before and after the join to listings.
           - not_null
           - unique

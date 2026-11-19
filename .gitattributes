@@ -1,0 +1,13 @@
+# ==============================================================================
+# .gitattributes  -  per-file rules for Git
+# ==============================================================================
+# Windows ends each line of a text file with two hidden characters (called CRLF).
+# Mac and Linux use one (called LF). Git may quietly convert between the two.
+#
+# setup_windows.bat must keep the Windows line endings: the Windows Command
+# Prompt can misread a .bat file that has Mac/Linux line endings.
+#
+# "-text" tells Git: do not convert line endings in these files, store and
+# hand them out exactly as they are.
+# ==============================================================================
+*.bat -text

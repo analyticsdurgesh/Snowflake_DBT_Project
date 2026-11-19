@@ -1,22 +1,102 @@
+# ==============================================================================
+# profiles.yml.example  -  TEMPLATE for your private connection file
+# ==============================================================================
+# HOW TO USE THIS FILE
+#   1. Copy it:      cp profiles.yml.example profiles.yml
+#   2. Open profiles.yml and replace the three "your_..." values.
+#   3. Never commit profiles.yml (it is listed in .gitignore).
+#
+# WHAT IS profiles.yml?
+#   dbt separates two kinds of configuration:
+#     * dbt_project.yml -> WHAT to build   (safe to share, committed to git)
+#     * profiles.yml    -> WHERE to build  (secret: account, user, password)
+#   This split lets the same project run against different Snowflake accounts
+#   without changing any model code.
+#
+#   In this project the Python loader and the Streamlit dashboard ALSO read this
+#   file, so your credentials live in exactly one place.
+#
+#   dbt looks for this file in the folder you run the command from, and after
+#   that in the folder ~/.dbt/ inside your home folder. We keep it in the
+#   project folder and say so explicitly on every command with:  --profiles-dir .
+# ==============================================================================
+
+# "airbnb_snowflake" is the PROFILE NAME.
+# It must match the line  "profile: airbnb_snowflake"  inside dbt_project.yml.
+# That matching name is how dbt knows which profile belongs to which project.
 airbnb_snowflake:
-  # dev = Snowflake (the default). duckdb = the free path: a local file, no account.
-  # Pick one per command with --target, e.g.  dbt build --target duckdb --profiles-dir .
+
+  # target = which of the "outputs" below dbt uses by default.
+  # A profile can hold several outputs (for example dev and prod).
+  # You can switch at run time with:  dbt run --target prod
   target: dev
+
+  # outputs = the list of named connections (also called "targets").
   outputs:
+
+    # "dev" is the name of this target. The name is your choice.
+    # Inside models it is available as the Jinja variable target.name.
     dev:
+
+      # type = which dbt adapter to use. "snowflake" needs dbt-snowflake installed.
       type: snowflake
+
+      # account = your Snowflake ACCOUNT IDENTIFIER in the form ORGNAME-ACCOUNTNAME.
+      # Find it in Snowsight: bottom-left user menu -> Account -> View account details.
+      # Do NOT include ".snowflakecomputing.com".
       account: "your_snowflake_account"
+
+      # user = your Snowflake LOGIN NAME (shown as "Login name" in account details).
       user: "your_snowflake_username"
+
+      # password = the password for that user.
       password: "your_snowflake_password"
+
+      # role = the Snowflake role dbt will use. A role decides what you are allowed
+      # to do. ACCOUNTADMIN can do everything, which keeps a learning project simple.
+      # A real company would create a limited role such as TRANSFORMER.
       role: "ACCOUNTADMIN"
+
+      # database = the default Snowflake database dbt builds models in.
       database: "AIRBNB_ANALYTICS"
+
+      # warehouse = the Snowflake compute cluster that runs the queries.
+      # In Snowflake, storage (databases) and compute (warehouses) are separate.
       warehouse: "COMPUTE_WH"
+
+      # schema = the DEFAULT schema. A model is built here only when it has no
+      # "+schema" setting. In this project every folder sets its own schema in
+      # dbt_project.yml, and macros/generate_schema_name.sql decides the final name.
       schema: "ANALYTICS"
+
+      # threads = how many models dbt may build at the same time.
+      # dbt reads the dependency graph and runs independent models in parallel.
+      # 4 means up to four queries are sent to Snowflake at once.
       threads: 4
+
+      # client_session_keep_alive = false lets the Snowflake session expire
+      # normally when idle. true would keep it open for very long-running jobs.
       client_session_keep_alive: false
+
+    # --------------------------------------------------------------------------
+    # "duckdb" is a second target: the FREE path. No Snowflake account needed.
+    # DuckDB is a small database that lives in ONE file on your own computer.
+    # Use it by adding  --target duckdb  to a dbt command, for example:
+    #     dbt build --target duckdb --profiles-dir .
+    # Nothing below needs changing.
+    # --------------------------------------------------------------------------
     duckdb:
+
+      # type = which adapter dbt uses. "duckdb" needs the dbt-duckdb package
+      # (pip install -r requirements-duckdb.txt).
       type: duckdb
-      # Created by: python scripts/load_inside_airbnb_to_duckdb.py
+
+      # path = the DuckDB file. It is created by:
+      #     python scripts/load_inside_airbnb_to_duckdb.py
       path: "airbnb.duckdb"
+
+      # schema = the default schema, the same idea as on Snowflake.
       schema: "analytics"
+
+      # threads = how many models dbt may build at the same time.
       threads: 4

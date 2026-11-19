@@ -1,10 +1,61 @@
-# Ready-made builds only for cryptography: its newest versions have no Intel-Mac build, and compiling it
-# needs Rust. pip then takes the newest version that has a build for the learner's computer.
+# ==============================================================================
+# requirements.txt
+# ==============================================================================
+# The list of Python packages this project needs.
+# Install all of them with:   pip install -r requirements.txt
+#
+# How to read a line:   package-name == version
+#   "==" means "install exactly this version".
+#
+# WHY EXACT VERSIONS?
+#   Packages release new versions all the time, and a new version can change
+#   how things behave. With exact versions, everyone who installs this project
+#   gets the same setup that was tested, whether they install it today or next
+#   year. This is called "pinning".
+#
+# WHICH PYTHON?
+#   These versions work with Python 3.10, 3.11, 3.12 and 3.13.
+# ==============================================================================
+
+# --only-binary=cryptography tells pip to take a ready-made build of the
+# "cryptography" package and never try to compile it. Its newest versions
+# have no ready-made build for Intel Macs, and compiling needs extra tools.
+# With this line pip picks the newest version that has a build for your computer.
 --only-binary=cryptography
-dbt-snowflake>=1.8,<2.0
-# A released dbt, never a test build: dbt-snowflake accepts pre-releases, and pip then picks one.
-dbt-core>=1.10,<1.13
-snowflake-connector-python[pandas]>=3.10
-streamlit>=1.52
-pandas>=2.2
-altair>=5.3
+
+# dbt-core = dbt itself: the program behind the "dbt" command. It reads the
+# project, fills in the Jinja, works out the build order and runs the models.
+dbt-core==1.11.11
+
+# dbt-snowflake = the "adapter" that teaches dbt how to talk to Snowflake.
+# dbt-core alone cannot connect to any database. The adapter supplies the
+# Snowflake-specific SQL (how to create a view, how to MERGE, ...).
+dbt-snowflake==1.11.5
+
+# snowflake-connector-python = the official Python driver for Snowflake.
+# The loader script and the dashboard use it to log in and run SQL from Python.
+# The "[pandas]" extra adds the pieces needed to fetch query results directly
+# as a pandas DataFrame (used by the dashboard's fetch_pandas_all()).
+snowflake-connector-python[pandas]==4.6.0
+
+# dbt-duckdb = the adapter for DuckDB, the FREE path. DuckDB is a database
+# that lives in one file on your computer, so you can run the whole project
+# without a Snowflake account:   python run_pipeline.py --duckdb
+dbt-duckdb==1.11.1
+
+# duckdb = DuckDB itself. The loader and the dashboard use it on the free path.
+duckdb==1.5.6
+
+# PyYAML = reads YAML files from Python. The loader and the dashboard use it to
+# read profiles.yml so that the password lives in exactly ONE file.
+pyyaml==6.0.3
+
+# streamlit = turns a plain Python script into an interactive web dashboard.
+streamlit==1.57.0
+
+# pandas = the DataFrame library (tables in memory) used for filtering and
+# aggregating data inside the dashboard.
+pandas==2.3.3
+
+# altair = the charting library used to draw the dashboard's charts.
+altair==6.1.0

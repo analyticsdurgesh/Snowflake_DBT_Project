@@ -1,81 +1,124 @@
+# ==============================================================================
+# models/marts/_marts_models.yml  -  docs and tests for the MARTS layer
+# ==============================================================================
+# WHAT IS THE MARTS LAYER?
+#   The final, business-ready tables. Dashboards and analysts query ONLY these.
+#   Three kinds of table live here, recognisable by their prefix:
+#     dim_  DIMENSION  describes a thing (a listing, a host). One row per thing.
+#     fct_  FACT       records events or measurements (a calendar day, a review).
+#     agg_  AGGREGATE  a pre-summarised table built for fast dashboards.
+#
+# This is a dbt "properties" file. It is linked to the .sql files by model name.
+#   description -> documentation. Because dbt_project.yml switches on
+#                  persist_docs, each description is also saved in Snowflake as
+#                  a COMMENT on the table or column.
+#   data_tests  -> checks run by "dbt test". Each test is a query that looks
+#                  for bad rows. Zero bad rows = PASS.
+#
+# Tests on marts matter most: they guard the exact tables the dashboard reads.
+# ==============================================================================
+
+# Layout version of dbt properties files. Always 2.
 version: 2
 
+# models: the list of models described in this file.
 models:
+
+  # ----------------------------------------------------------------------------
+  # name = the .sql file name without ".sql".
   - name: dim_listings
     description: One row per listing with host, location, property, price, and review attributes.
     columns:
       - name: listing_id
         description: Unique Airbnb listing identifier.
-        tests:
+        data_tests:
+          # not_null + unique = this column is the table's PRIMARY KEY.
+          # Snowflake does not enforce primary keys by itself, so these two
+          # tests are how we prove the "one row per listing" promise.
           - not_null
           - unique
       - name: nightly_price
         description: Listing base nightly price.
       - name: reporting_neighbourhood
         description: Neighbourhood used in analytics reporting.
-        tests:
+        data_tests:
+          # The dashboard filters on this column, so it must always be filled.
           - not_null
 
+  # ----------------------------------------------------------------------------
   - name: dim_hosts
     description: One row per host with listing counts, profile attributes, and aggregated listing metrics.
     columns:
       - name: host_id
         description: Unique Airbnb host identifier.
-        tests:
+        data_tests:
+          # Primary key of the host dimension. The unique test proves that the
+          # GROUP BY in dim_hosts.sql really produced one row per host.
           - not_null
           - unique
       - name: listing_count
         description: Number of listings managed by the host.
 
+  # ----------------------------------------------------------------------------
   - name: fct_listing_calendar
     description: Incremental fact table with one row per listing per calendar date.
     columns:
       - name: listing_id
         description: Airbnb listing identifier.
-        tests:
+        data_tests:
           - not_null
       - name: calendar_date
         description: Calendar date.
-        tests:
+        data_tests:
           - not_null
+      # The key of this table is the PAIR (listing_id, calendar_date).
+      # The generic "unique" test checks one column only, so the uniqueness of
+      # the pair is checked by a singular test instead:
+      # tests/assert_no_duplicate_listing_calendar.sql
       - name: estimated_unavailable_night_revenue
         description: Estimated revenue proxy for unavailable nights.
-        tests:
+        data_tests:
+          # A NULL here would make sum() in the aggregate tables silently too low.
           - not_null
 
+  # ----------------------------------------------------------------------------
   - name: fct_reviews
     description: One row per Airbnb review.
     columns:
       - name: review_id
         description: Unique Airbnb review identifier.
-        tests:
+        data_tests:
+          # Primary key of the review fact.
           - not_null
           - unique
       - name: listing_id
         description: Airbnb listing identifier.
-        tests:
+        data_tests:
+          # Every review must belong to a listing.
           - not_null
 
+  # ----------------------------------------------------------------------------
   - name: agg_listing_monthly_performance
     description: Monthly listing-level availability, price, and estimated revenue metrics.
     columns:
       - name: listing_id
         description: Airbnb listing identifier.
-        tests:
+        data_tests:
           - not_null
       - name: calendar_month
         description: First day of the reporting month.
-        tests:
+        data_tests:
           - not_null
 
+  # ----------------------------------------------------------------------------
   - name: agg_neighbourhood_monthly_performance
     description: Monthly neighbourhood-level availability, price, and estimated revenue metrics.
     columns:
       - name: reporting_neighbourhood
         description: Neighbourhood used in analytics reporting.
-        tests:
+        data_tests:
           - not_null
       - name: calendar_month
         description: First day of the reporting month.
-        tests:
+        data_tests:
           - not_null
