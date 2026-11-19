@@ -1,5 +1,47 @@
-dbt-snowflake>=1.8,<2.0
-snowflake-connector-python[pandas]>=3.10
-streamlit>=1.35
-pandas>=2.2
-altair>=5.3
+# ==============================================================================
+# requirements.txt
+# ==============================================================================
+# The list of Python packages this project needs.
+# Install all of them with:   pip install -r requirements.txt
+#
+# How to read a line:   package-name == version
+#   "==" means "install exactly this version".
+#
+# WHY EXACT VERSIONS?
+#   Packages release new versions all the time, and a new version can change
+#   how things behave. With exact versions, everyone who installs this project
+#   gets the same setup that was tested, whether they install it today or next
+#   year. This is called "pinning".
+#
+# WHICH PYTHON?
+#   These versions work with Python 3.10, 3.11, 3.12 and 3.13.
+# ==============================================================================
+
+# dbt-core = dbt itself: the program behind the "dbt" command. It reads the
+# project, fills in the Jinja, works out the build order and runs the models.
+dbt-core==1.11.11
+
+# dbt-snowflake = the "adapter" that teaches dbt how to talk to Snowflake.
+# dbt-core alone cannot connect to any database. The adapter supplies the
+# Snowflake-specific SQL (how to create a view, how to MERGE, ...).
+dbt-snowflake==1.11.5
+
+# snowflake-connector-python = the official Python driver for Snowflake.
+# The loader script and the dashboard use it to log in and run SQL from Python.
+# The "[pandas]" extra adds the pieces needed to fetch query results directly
+# as a pandas DataFrame (used by the dashboard's fetch_pandas_all()).
+snowflake-connector-python[pandas]==4.6.0
+
+# PyYAML = reads YAML files from Python. The loader and the dashboard use it to
+# read profiles.yml so that the password lives in exactly ONE file.
+pyyaml==6.0.3
+
+# streamlit = turns a plain Python script into an interactive web dashboard.
+streamlit==1.57.0
+
+# pandas = the DataFrame library (tables in memory) used for filtering and
+# aggregating data inside the dashboard.
+pandas==2.3.3
+
+# altair = the charting library used to draw the dashboard's charts.
+altair==6.1.0

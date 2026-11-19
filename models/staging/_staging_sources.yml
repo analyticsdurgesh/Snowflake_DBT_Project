@@ -1,46 +1,126 @@
+# ==============================================================================
+# models/staging/_staging_sources.yml  -  declares the RAW tables as dbt SOURCES
+# ==============================================================================
+# WHAT IS A SOURCE?
+#   A source is a table that already exists in the warehouse and was NOT created
+#   by dbt. Here: the four RAW tables that our Python loader filled.
+#   dbt cannot build them, but it needs to know about them.
+#
+# WHY DECLARE THEM INSTEAD OF WRITING THE TABLE NAME IN SQL?
+#   In a model we write        {{ source('airbnb_raw', 'listings') }}
+#   and dbt replaces it with   AIRBNB_ANALYTICS.RAW.listings
+#   That gives three benefits:
+#     1. ONE place to change. If the raw database or schema is renamed, edit
+#        this file only. No model has to change.
+#     2. LINEAGE. dbt draws the sources as the green starting nodes of the
+#        dependency graph, so you can trace every dashboard number to its origin.
+#     3. TESTS and DOCS. Sources can be tested and described like models.
+#
+# RULE OF THUMB
+#   source() is used ONLY in staging models. Every other model uses ref().
+#
+# WHY DOES THE FILE NAME START WITH AN UNDERSCORE?
+#   Only a convention. It sorts the .yml files to the top of the folder.
+#   dbt reads every .yml file inside models/, whatever its name is.
+# ==============================================================================
+
+# version: 2 is the layout version of dbt "properties" files (the .yml files
+# that describe sources and models). 2 is the only version in use today.
 version: 2
 
+# sources: starts the list of source groups.
 sources:
+
+  # name = OUR nickname for this group of raw tables.
+  # It is the FIRST argument of source():  source('airbnb_raw', ...).
+  # It does not need to match anything in Snowflake.
   - name: airbnb_raw
+
+    # description = free text shown in the dbt docs website.
     description: Raw Inside Airbnb files loaded into Snowflake without business transformations.
+
+    # database = the Snowflake database that holds the raw tables.
     database: AIRBNB_ANALYTICS
+
+    # schema = the Snowflake schema that holds the raw tables.
+    # (When "schema" is left out, dbt uses the source "name" as the schema.)
     schema: RAW
+
+    # tables: the list of tables inside that schema we want to use.
     tables:
+
+      # name = the real table name in Snowflake.
+      # It is the SECOND argument of source():  source('airbnb_raw', 'listings').
       - name: listings
         description: Listing-level attributes from Inside Airbnb.
+
+        # columns: lists the columns we want to describe or test.
+        # You do NOT have to list every column. List only the ones you care about.
         columns:
+
+          # name = the column name exactly as it is in the raw table.
           - name: id
             description: Airbnb listing identifier.
-            tests:
+
+            # data_tests: attaches GENERIC TESTS to this column.
+            #
+            # WHAT IS A GENERIC TEST?
+            #   A ready-made, reusable check. You only name it here, and dbt
+            #   writes the SQL for you. dbt ships with four of them:
+            #     not_null         the column has no NULL values
+            #     unique           no value appears more than once
+            #     accepted_values  every value is in an allowed list
+            #     relationships    every value exists in another table
+            #                      (a foreign key check)
+            #
+            # HOW DOES A TEST PASS OR FAIL?
+            #   Each test becomes a SELECT that looks for BAD rows.
+            #   0 rows returned -> PASS.   1 or more rows -> FAIL.
+            #
+            # Run every test with:  dbt test
+            # (Older projects write "tests:" instead of "data_tests:".
+            #  Both mean the same thing. "data_tests:" is the current name.)
+            data_tests:
+              # Fails if any row has a NULL id.
               - not_null
+              # Fails if the same id appears in more than one row.
+              # not_null + unique together prove a column is a PRIMARY KEY.
               - unique
+
+      # The calendar table: one row per listing per day.
       - name: calendar
         description: Listing-date availability and price data.
         columns:
           - name: listing_id
             description: Airbnb listing identifier.
-            tests:
+            data_tests:
+              # Every calendar row must belong to a listing.
               - not_null
           - name: date
             description: Calendar date for the listing.
-            tests:
+            data_tests:
+              # Every calendar row must have a date.
               - not_null
+
+      # The reviews table: one row per guest review.
       - name: reviews
         description: Review-level records from Inside Airbnb.
         columns:
           - name: id
             description: Airbnb review identifier.
-            tests:
+            data_tests:
+              # id is the primary key of reviews: never empty, never repeated.
               - not_null
               - unique
           - name: listing_id
             description: Airbnb listing identifier.
-            tests:
+            data_tests:
+              # Every review must point at a listing.
               - not_null
+
+      # The neighbourhoods table: a small lookup list of neighbourhood names.
       - name: neighbourhoods
         description: Reference list of neighbourhood names and optional neighbourhood groups.
         columns:
           - name: neighbourhood
             description: Neighbourhood name from Inside Airbnb.
-            tests:
-              - not_null

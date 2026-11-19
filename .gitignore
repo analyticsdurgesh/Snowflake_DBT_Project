@@ -1,16 +1,42 @@
-.venv/
-target/
-dbt_packages/
-logs/
-*.log
-.env
-.user.yml
-profiles-local.yml
-profiles.yml
-config/local_credentials.json
-__pycache__/
-.DS_Store
+# ==============================================================================
+# .gitignore
+# ==============================================================================
+# Git reads this file to decide which files it must NEVER track or upload.
+# Every line below is a pattern. Any file or folder matching a pattern is
+# invisible to "git add", so it can never be committed by accident.
+# Lines starting with "#" (like this one) are comments and are ignored by git.
+# ==============================================================================
 
-# Older local setup notes still reference environment-variable workflows.
-docs/STUDENT_GUIDE.md
-docs/SNOWFLAKE_SETUP.md
+# profiles.yml holds the real Snowflake account, user name and PASSWORD.
+# It is the single most important file to keep out of git.
+# Only the safe template "profiles.yml.example" is committed.
+profiles.yml
+
+# .venv/ is the Python virtual environment (about 500 MB of installed packages).
+# Anyone can rebuild it with "pip install -r requirements.txt", so it is not stored.
+.venv/
+
+# target/ is created by dbt on every run. It contains the compiled SQL,
+# manifest.json, run_results.json and the docs website. It is fully regenerated,
+# so storing it would only create noise and merge conflicts.
+target/
+
+# dbt_packages/ is where "dbt deps" downloads third-party dbt packages.
+# This project uses none, but the folder is ignored in case one is added later.
+dbt_packages/
+
+# logs/ is where dbt writes dbt.log (a detailed debug log of every command).
+logs/
+
+# Any other log file produced by tools.
+*.log
+
+# .user.yml is created by dbt and stores an anonymous id for this computer only.
+.user.yml
+
+# __pycache__/ folders hold Python's compiled bytecode (.pyc files).
+# Python recreates them automatically whenever a script runs.
+__pycache__/
+
+# .DS_Store is a hidden file macOS Finder creates in every folder it opens.
+.DS_Store
